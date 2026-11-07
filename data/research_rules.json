@@ -1,0 +1,70 @@
+{
+  "source": "Team27 Research Page.docx, Yimeng section and exercise notes",
+  "disclaimer": "Transcribed team research notes for a class prototype. These are not clinically validated thresholds.",
+  "deep_squat": {
+    "runtime_implemented": true,
+    "runtime_thresholds": {
+      "min_squat_depth": 0.291,
+      "max_hip_drift": 0.005,
+      "max_head_drift": 0.00169
+    },
+    "research_values": {
+      "reported_relative_depth_percent": 32.1,
+      "depth_tolerance_percentage_points": 3.0,
+      "waist_recovery_percent": 0.48,
+      "waist_error_percent": 0.02,
+      "head_recovery_percent": 0.163,
+      "head_error_percent": 0.006
+    },
+    "formula_notes": [
+      "Research note: relative squat depth is y displacement divided by height.",
+      "Runtime minimum depth is 32.1% minus a 3 percentage point tolerance = 29.1% (0.291).",
+      "Runtime maximum hip/waist return drift is 0.48% + 0.02% = 0.50% (0.005).",
+      "Runtime maximum head return drift is 0.163% + 0.006% = 0.169% (0.00169).",
+      "Runtime estimates height from detected nose-to-ankle image distance; this is a prototype approximation, not the same measurement setup as the research source."
+    ]
+  },
+  "plank": {
+    "runtime_implemented": false,
+    "landmarks_from_notes": ["shoulder", "hip", "foot"],
+    "angle_degrees": {
+      "too_low_below": 178,
+      "good_if_greater_than": 178,
+      "good_if_less_than": 192,
+      "too_high_above": 192,
+      "boundary_values_specified": false
+    },
+    "note": "Angle vertex/side-view convention and hold duration need to be confirmed before adding this mode."
+  },
+  "bicep_curl": {
+    "runtime_implemented": false,
+    "landmarks_from_notes": ["shoulder", "elbow", "wrist"],
+    "angle_degrees": {
+      "cue_go_up_above": 160,
+      "cue_go_down_below": 30
+    },
+    "note": "These are endpoint cues from the notes; the repetition start/end transition is not specified."
+  },
+  "arm_rainbow": {
+    "runtime_implemented": false,
+    "landmarks_from_notes": ["head_tip", "hip", "arm"],
+    "note": "The notes say to check upright posture, arm angle, and front/back camera orientation but provide no numeric threshold."
+  },
+  "farmers_carry": {
+    "runtime_implemented": false,
+    "landmarks_from_notes": ["neck", "waist"],
+    "angle_degrees": {
+      "torso_from_vertical_below": 8
+    },
+    "note": "The notes specify an upright torso angle under 8 degrees; duration and rep/event rules are unspecified."
+  },
+  "good_morning": {
+    "runtime_implemented": false,
+    "landmarks_from_notes": ["chest", "spine_waist", "upper_leg", "lower_leg", "foot"],
+    "angle_degrees": {
+      "torso_not_good_below": 84.5,
+      "leg_chain_good_below": 12
+    },
+    "note": "The source notes do not fully define the angle convention or how the two tests combine."
+  }
+}

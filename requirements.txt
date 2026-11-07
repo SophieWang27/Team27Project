@@ -1,0 +1,5 @@
+# Start on the VS Code laptop with Python 3.11.
+mediapipe==0.10.21
+numpy>=1.26,<2
+pyserial>=3.5,<4
+python-dotenv>=1.0,<2
