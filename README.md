@@ -104,8 +104,8 @@ The sketch in `arduino/uno_r4_display/` expects an Arduino Uno R4 Minima and a 1
 | --- | --- |
 | OLED SDA / SCL | SDA / SCL pins |
 | OLED VCC / GND | Use the supply voltage specified for your OLED module, plus GND |
-| Green LED | D8 through a 220–330 Ω resistor to GND |
-| Red LED | D9 through a 220–330 Ω resistor to GND |
+| Green LED | D8 through a 470 Ω resistor to GND |
+| Red LED | D9 through a 470 Ω resistor to GND |
 
 Find the Arduino port in **Tools → Port**. Put it in `.env`, for example `SERIAL_PORT=/dev/cu.usbmodemXXXX`, then restart the Python program. Leave `SERIAL_PORT=` empty to use the camera prototype without the display.
 
