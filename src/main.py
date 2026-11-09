@@ -1,7 +1,7 @@
 """Application entry point: video stream -> pose -> squat rules -> display."""
 
 import argparse
-from pathlib import Path
+import time
 
 import cv2
 
@@ -38,24 +38,34 @@ def _draw_pose(frame, landmarks) -> None:
         cv2.circle(frame, p2, 4, (40, 180, 255), -1)
 
 
-def _draw_status(frame, reps: int, status: str, feedback: str) -> None:
+def _draw_status(frame, reps: int, status: str, feedback: str, fps: float) -> None:
     color = (60, 220, 90) if status == "GOOD" else (30, 200, 255)
-    cv2.rectangle(frame, (8, 8), (410, 112), (20, 20, 20), -1)
+    cv2.rectangle(frame, (8, 8), (430, 138), (20, 20, 20), -1)
     cv2.putText(frame, f"Valid reps: {reps}", (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.75, color, 2)
     cv2.putText(frame, f"State: {status}", (20, 68), cv2.FONT_HERSHEY_SIMPLEX, 0.62, color, 2)
     cv2.putText(frame, feedback[:42], (20, 96), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (245, 245, 245), 1)
+    cv2.putText(frame, f"Processing: {fps:.1f} FPS", (20, 122), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (220, 220, 220), 1)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Track one person's deep-squat repetitions.")
     parser.add_argument("--source", help="Override CAMERA_SOURCE (camera index, video file, or MJPEG URL).")
     parser.add_argument("--headless", action="store_true", help="Run without opening an OpenCV preview window.")
+    parser.add_argument(
+        "--stats-interval",
+        type=float,
+        default=5.0,
+        help="Seconds between terminal performance summaries (default: 5).",
+    )
     args = parser.parse_args()
+    if args.stats_interval <= 0:
+        parser.error("--stats-interval must be greater than 0")
 
     settings = load_settings()
     source = args.source or settings.camera_source
     capture = cv2.VideoCapture(_video_source(source))
     if not capture.isOpened():
+        capture.release()
         raise RuntimeError(f"Could not open video source: {source}")
     capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
@@ -67,17 +77,39 @@ def main() -> None:
     )
     display = SerialDisplay(settings.serial_port, settings.baud_rate)
     estimator = None
+    stats_frames = 0
+    stats_pose_seconds = 0.0
+    processing_fps = 0.0
     print("Camera ready. Use a steady side view and hold an upright stance for calibration.")
 
     try:
         estimator = PoseEstimator(settings.model_path)
+        stats_started = time.perf_counter()
         while True:
             ok, frame = capture.read()
             if not ok:
                 print("Video frame unavailable; stopping the stream loop.")
                 break
 
+            pose_started = time.perf_counter()
             landmarks = estimator.detect(frame)
+            pose_seconds = time.perf_counter() - pose_started
+            stats_frames += 1
+            stats_pose_seconds += pose_seconds
+
+            stats_elapsed = time.perf_counter() - stats_started
+            processing_fps = stats_frames / stats_elapsed
+            if stats_elapsed >= args.stats_interval:
+                average_pose_ms = stats_pose_seconds * 1000 / stats_frames
+                height, width = frame.shape[:2]
+                print(
+                    f"Performance: {processing_fps:.1f} FPS; "
+                    f"pose inference {average_pose_ms:.1f} ms/frame; "
+                    f"camera frame {width}x{height}"
+                )
+                stats_started = time.perf_counter()
+                stats_frames = 0
+                stats_pose_seconds = 0.0
             if landmarks is None:
                 snapshot = counter.no_pose()
             else:
@@ -87,7 +119,7 @@ def main() -> None:
             display.send(snapshot.reps, snapshot.status, snapshot.feedback)
             if not args.headless:
                 _draw_pose(frame, landmarks)
-                _draw_status(frame, snapshot.reps, snapshot.status, snapshot.feedback)
+                _draw_status(frame, snapshot.reps, snapshot.status, snapshot.feedback, processing_fps)
                 cv2.putText(frame, "Q: quit", (20, frame.shape[0] - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
                 cv2.imshow("Team 27 Exercise Tracker", frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
