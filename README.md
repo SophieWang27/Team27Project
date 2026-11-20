@@ -1,6 +1,6 @@
 # Team 27 Exercise Tracker
 
-This is our laptop-first prototype for ECE 198 subproblem 2: exercise tracking and measurement. It uses a webcam or an ESP32-CAM stream, estimates one person's pose with Google's pretrained MediaPipe model, and checks deep-squat repetitions against the measurements in our research notes. If an Arduino Uno R4 is connected, the rep count and feedback can also appear on its OLED.
+This is our laptop-first prototype for ECE 198 subproblem 2: exercise tracking and measurement. It uses a webcam or an ESP32-CAM stream, estimates one person's pose with Google's pretrained MediaPipe model, and offers six selectable exercise modes. The deep-squat checks use measurements transcribed from our research notes. Other modes use those notes where they give a clear rule and label any extra prototype assumptions.
 
 Start with the laptop camera. The ESP32-CAM, Arduino display, and Raspberry Pi are optional steps after that run works.
 
@@ -13,9 +13,9 @@ source .venv/bin/activate
 python -m src.main --source 0
 ```
 
-The preview window should show the camera image, detected skeleton, rep count, feedback, and processing speed. Press **Q** in the preview window to stop. You can also press **Control+C** in the VS Code terminal.
+The preview window should show the camera image, detected skeleton, selected exercise, completed reps or holds, feedback, and processing speed. Press **1** through **6** in the preview window to select an exercise, or press **N** to cycle to the next exercise. Press **Q** to stop. You can also press **Control+C** in the VS Code terminal.
 
-For the first 30 visible frames, stand upright and still so the program can set its starting position. Then stay side-on to the camera with your whole body in view. Good lighting helps the pose model find your knees and ankles.
+For deep squat, stand upright and still for the first 30 visible frames so the program can set its starting position. Use a side view with your whole body visible for squat, plank, bicep curl, farmer's carry, and good morning. Use a front-facing view for arm rainbow. Good lighting helps the pose model find the joints.
 
 The terminal prints performance every five seconds. It includes processing FPS, average pose-inference time, and camera-frame size. Use this when comparing the laptop with a Raspberry Pi.
 
@@ -52,7 +52,9 @@ On Windows, create the environment with `py -3.11 -m venv .venv` and activate it
 
 ## What the prototype measures
 
-The first exercise is the deep squat because our notes provide a depth target and two standing-recovery checks. The program loads these default values from `data/research_rules.json`:
+Exercise keys are **1 Deep squat**, **2 Plank**, **3 Bicep curl**, **4 Arm rainbow**, **5 Farmer's carry**, and **6 Good morning**. A mode keeps its completed count while the program is running. Selecting a mode again clears its partial movement or hold and restarts that mode's setup; the squat asks for a fresh upright calibration.
+
+The program reads the research values from `data/research_rules.json`. The deep squat uses the most fully specified set of measurements in the research page:
 
 | Check | Value used by the program |
 | --- | ---: |
@@ -62,7 +64,7 @@ The first exercise is the deep squat because our notes provide a depth target an
 
 The 29.1% value comes from the 32.1% depth reference in the notes with a 3 percentage-point margin. The other limits combine the reported recovery values with the error margins written in the notes. In this version, image height is estimated from the visible nose-to-ankle distance; the program does not ask for a person's height in centimetres.
 
-Plank, curl, arm-rainbow, farmer's-carry, and good-morning notes are saved in the same research files. They are not active modes yet because the notes leave details such as movement phases, angle conventions, or thresholds unresolved. We should confirm those details with the team before using them to count repetitions.
+The other five modes are now selectable prototypes. Plank and farmer's carry count a completed 10-second hold; the notes specify posture but not how long to hold, so 10 seconds is a demo value that can be changed in `data/research_rules.json`. Bicep curls count a cycle from an extended arm (>160 degrees), to a flexed arm (<30 degrees), and back to extension. Arm rainbow uses a provisional raise-and-return wrist-height rule because the notes do not supply numeric thresholds. Good morning uses the recorded 84.5-degree and 12-degree checks plus provisional 140-degree hinge and 160-degree standing endpoints to define a full rep. These modes load their research and prototype values from `data/research_rules.json`. Confirm the research angle conventions with the team and test the modes before treating the rules as final form checks. Full details are in [`data/research_rules.md`](data/research_rules.md).
 
 These measurements are for a class prototype. They have not been validated for clinical or safety decisions.
 
@@ -96,7 +98,7 @@ python -m src.main
 
 The actual setting should look like `CAMERA_SOURCE=http://192.168.1.123:81/stream`, using the IP printed by your board.
 
-## Connect the Arduino display
+## Connect the Arduino display and optional exercise button
 
 The sketch in `arduino/uno_r4_display/` expects an Arduino Uno R4 Minima and a 128×64 SSD1306 I2C OLED. Install the **Arduino UNO R4 Boards** package and the **U8g2** library in Arduino IDE, then open and upload `uno_r4_display.ino`.
 
@@ -106,20 +108,21 @@ The sketch in `arduino/uno_r4_display/` expects an Arduino Uno R4 Minima and a 1
 | OLED VCC / GND | Use the supply voltage specified for your OLED module, plus GND |
 | Green LED | D8 through a 470 Ω resistor to GND |
 | Red LED | D9 through a 470 Ω resistor to GND |
+| Momentary push button (optional) | One side to D2, the other side to GND |
 
 Find the Arduino port in **Tools → Port**. Put it in `.env`, for example `SERIAL_PORT=/dev/cu.usbmodemXXXX`, then restart the Python program. Leave `SERIAL_PORT=` empty to use the camera prototype without the display.
 
 The Python program sends one line when the display changes:
 
 ```text
-rep_count|status|feedback
+mode|completed_count|status|feedback
 ```
 
-For example: `2|DEPTH|Squat deeper`.
+The Arduino sends `MODE_NEXT` to Python when the optional D2 button is pressed. The program then cycles through all six exercise modes. The button uses the Arduino's internal pull-up resistor; do not connect it to 5 V. Without the Arduino/button, use the keyboard controls above. A separate checklist is in [`EXERCISE_SWITCH_WIRING.md`](EXERCISE_SWITCH_WIRING.md).
 
 ## Project files
 
-There are 18 source and setup files for this prototype. The downloaded model, `.env`, Python environment, Wi-Fi credentials, and optional dataset stay on each computer and are not committed to GitHub.
+The downloaded model, `.env`, Python environment, Wi-Fi credentials, and optional dataset stay on each computer and are not committed to GitHub.
 
 ```text
 Team27Project/
@@ -129,6 +132,7 @@ Team27Project/
 ├── requirements.txt                  Python packages
 ├── src/
 │   ├── main.py                       Camera loop, preview, and performance readout
+│   ├── exercise_modes.py             Exercise selector and five added trackers
 │   ├── pose_estimator.py              MediaPipe model wrapper
 │   ├── squat_counter.py               Squat measurements and rep counting
 │   ├── serial_display.py              Sends feedback to the Arduino
@@ -140,8 +144,9 @@ Team27Project/
 │   └── README.md                      UI-PRMD dataset notes
 ├── models/README.md                  Pretrained model download notes
 ├── scripts/download_model.py          Downloads the MediaPipe model
+├── EXERCISE_SWITCH_WIRING.md          Keyboard and optional Arduino button guide
 ├── camera/esp32_cam_stream/           ESP32-CAM Wi-Fi streaming firmware
-└── arduino/uno_r4_display/             OLED and LED display firmware
+└── arduino/uno_r4_display/             OLED, LED, and button firmware
 ```
 
 The existing `src/index.html` file in the VS Code folder belongs to a separate placeholder and is not used by this Python prototype.

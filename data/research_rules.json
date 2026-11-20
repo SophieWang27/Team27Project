@@ -25,7 +25,7 @@
     ]
   },
   "plank": {
-    "runtime_implemented": false,
+    "runtime_implemented": true,
     "landmarks_from_notes": ["shoulder", "hip", "foot"],
     "angle_degrees": {
       "too_low_below": 178,
@@ -34,37 +34,55 @@
       "too_high_above": 192,
       "boundary_values_specified": false
     },
-    "note": "Angle vertex/side-view convention and hold duration need to be confirmed before adding this mode."
+    "prototype_rule": {
+      "good_range_inclusive": [178, 192],
+      "hold_seconds": 10
+    },
+    "note": "The prototype accepts 178-192 degrees inclusively and counts a 10-second hold. Endpoint inclusion and duration are prototype choices; the research notes do not specify them. Confirm the side-view angle convention."
   },
   "bicep_curl": {
-    "runtime_implemented": false,
+    "runtime_implemented": true,
     "landmarks_from_notes": ["shoulder", "elbow", "wrist"],
     "angle_degrees": {
       "cue_go_up_above": 160,
       "cue_go_down_below": 30
     },
-    "note": "These are endpoint cues from the notes; the repetition start/end transition is not specified."
+    "prototype_rep_sequence": ["extended above 160 degrees", "flexed below 30 degrees", "return above 160 degrees"],
+    "note": "The runtime uses the research endpoint cues to define a provisional full repetition sequence; the notes do not state this transition explicitly."
   },
   "arm_rainbow": {
-    "runtime_implemented": false,
+    "runtime_implemented": true,
     "landmarks_from_notes": ["head_tip", "hip", "arm"],
-    "note": "The notes say to check upright posture, arm angle, and front/back camera orientation but provide no numeric threshold."
+    "prototype_thresholds": {
+      "wrist_above_shoulder_fraction_of_torso": 0.15,
+      "wrist_below_shoulder_fraction_of_torso": 0.05,
+      "maximum_torso_lean_fraction": 0.20
+    },
+    "note": "Prototype counts a one-arm raise and return in a front-facing view. The notes give no numeric thresholds; all three runtime thresholds are provisional."
   },
   "farmers_carry": {
-    "runtime_implemented": false,
+    "runtime_implemented": true,
     "landmarks_from_notes": ["neck", "waist"],
     "angle_degrees": {
       "torso_from_vertical_below": 8
     },
-    "note": "The notes specify an upright torso angle under 8 degrees; duration and rep/event rules are unspecified."
+    "prototype_rule": {
+      "hold_seconds": 10,
+      "landmarks": ["shoulders", "hips"]
+    },
+    "note": "The runtime approximates the torso angle with shoulder and hip landmarks and counts a 10-second hold under 8 degrees. Landmark substitution and duration are provisional because the notes specify neither."
   },
   "good_morning": {
-    "runtime_implemented": false,
+    "runtime_implemented": true,
     "landmarks_from_notes": ["chest", "spine_waist", "upper_leg", "lower_leg", "foot"],
     "angle_degrees": {
       "torso_not_good_below": 84.5,
       "leg_chain_good_below": 12
     },
-    "note": "The source notes do not fully define the angle convention or how the two tests combine."
+    "prototype_rep_thresholds": {
+      "standing_hip_angle_at_least": 160,
+      "hinge_hip_angle_at_most": 140
+    },
+    "note": "The runtime combines a hip angle at least 84.5 degrees with a straight-leg deviation below 12 degrees and uses 140-degree hinge / 160-degree standing endpoints to count a rep. The rep endpoints are provisional; confirm the research angle convention and how its conditions combine."
   }
 }

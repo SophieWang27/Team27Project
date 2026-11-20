@@ -9,6 +9,7 @@ class SerialDisplay:
     def __init__(self, port: str | None, baud_rate: int) -> None:
         self._connection = None
         self._last_message: str | None = None
+        self._incoming = bytearray()
         if not port:
             print("Arduino serial output disabled (SERIAL_PORT is empty).")
             return
@@ -23,13 +24,13 @@ class SerialDisplay:
         except Exception as exc:  # Keep camera-only operation available during setup.
             print(f"Could not open Arduino serial port {port}: {exc}")
 
-    def send(self, reps: int, status: str, feedback: str) -> None:
+    def send(self, mode: str, completed: int, status: str, feedback: str) -> None:
         """Send only changed display states to reduce serial traffic."""
         if self._connection is None:
             return
         safe_status = status.replace("|", " ").replace("\n", " ")[:16]
         safe_feedback = feedback.replace("|", " ").replace("\n", " ")[:48]
-        message = f"{reps}|{safe_status}|{safe_feedback}\n"
+        message = f"{mode}|{completed}|{safe_status}|{safe_feedback}\n"
         if message == self._last_message:
             return
         try:
@@ -38,6 +39,26 @@ class SerialDisplay:
         except Exception as exc:
             print(f"Arduino serial write failed: {exc}")
             self.close()
+
+    def poll_mode_change(self) -> bool:
+        """Read a non-blocking MODE_NEXT event from the optional Arduino button."""
+        if self._connection is None:
+            return False
+        try:
+            waiting = self._connection.in_waiting
+            if waiting:
+                self._incoming.extend(self._connection.read(waiting))
+            mode_next = False
+            while b"\n" in self._incoming:
+                line, _, rest = self._incoming.partition(b"\n")
+                self._incoming = bytearray(rest)
+                if line.strip() == b"MODE_NEXT":
+                    mode_next = True
+            return mode_next
+        except Exception as exc:
+            print(f"Arduino serial read failed: {exc}")
+            self.close()
+            return False
 
     def close(self) -> None:
         """Close the serial port if it was opened."""

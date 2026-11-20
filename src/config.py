@@ -22,12 +22,11 @@ def _int_setting(name: str, default: int) -> int:
     return default if value is None or value.strip() == "" else int(value)
 
 
-def _research_thresholds() -> dict[str, float]:
-    """Read the active default values transcribed from the research notes."""
+def _research_rules() -> dict:
+    """Read the exercise thresholds and cues transcribed from the research notes."""
     rules_path = PROJECT_ROOT / "data" / "research_rules.json"
     with rules_path.open("r", encoding="utf-8") as rules_file:
-        research_rules = json.load(rules_file)
-    return research_rules["deep_squat"]["runtime_thresholds"]
+        return json.load(rules_file)
 
 
 @dataclass(frozen=True)
@@ -43,11 +42,13 @@ class Settings:
     min_squat_depth: float
     max_hip_drift: float
     max_head_drift: float
+    research_rules: dict
 
 
 def load_settings() -> Settings:
     """Read settings while keeping file paths relative to the project root."""
-    thresholds = _research_thresholds()
+    research_rules = _research_rules()
+    thresholds = research_rules["deep_squat"]["runtime_thresholds"]
     raw_port = os.getenv("SERIAL_PORT", "").strip()
     raw_model = os.getenv("MODEL_PATH", "models/pose_landmarker_lite.task")
     model_path = Path(raw_model)
@@ -64,4 +65,5 @@ def load_settings() -> Settings:
         min_squat_depth=_float_setting("MIN_SQUAT_DEPTH", thresholds["min_squat_depth"]),
         max_hip_drift=_float_setting("MAX_HIP_DRIFT", thresholds["max_hip_drift"]),
         max_head_drift=_float_setting("MAX_HEAD_DRIFT", thresholds["max_head_drift"]),
+        research_rules=research_rules,
     )

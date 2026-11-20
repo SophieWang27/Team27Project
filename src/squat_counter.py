@@ -83,6 +83,21 @@ class SquatCounter:
         self._reps = 0
         self._last_outcome = RepStatus(0, "CALIBRATING", "Stand upright and hold still", "CALIBRATING")
 
+    @property
+    def reps(self) -> int:
+        """Number of valid repetitions completed in this session."""
+        return self._reps
+
+    def reset_tracking(self) -> None:
+        """Recalibrate and clear a partial rep while keeping the completed count."""
+        self._calibration.clear()
+        self._baseline = None
+        self._descending = False
+        self._peak_depth = 0.0
+        self._last_outcome = RepStatus(
+            self._reps, "CALIBRATING", "Stand upright and hold still", "CALIBRATING"
+        )
+
     def update(self, measurement: Measurement) -> RepStatus:
         """Update the repetition state machine with one visible pose."""
         if self._baseline is None:
