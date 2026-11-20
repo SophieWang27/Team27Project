@@ -13,7 +13,7 @@ source .venv/bin/activate
 python -m src.main --source 0
 ```
 
-The preview window should show the camera image, detected skeleton, selected exercise, completed reps or holds, feedback, and processing speed. Press **1** through **6** in the preview window to select an exercise, or press **N** to cycle to the next exercise. Press **Q** to stop. You can also press **Control+C** in the VS Code terminal.
+The preview window should show the camera image, detected skeleton, selected exercise, completed reps or holds, feedback, and processing speed. In deep-squat mode it also shows measured peak depth beside the 29.1% target. Press **1** through **6** in the preview window to select an exercise, or press **N** to cycle to the next exercise. Press **Q** to stop. You can also press **Control+C** in the VS Code terminal.
 
 For deep squat, stand upright and still for the first 30 visible frames so the program can set its starting position. Use a side view with your whole body visible for squat, plank, bicep curl, farmer's carry, and good morning. Use a front-facing view for arm rainbow. Good lighting helps the pose model find the joints.
 

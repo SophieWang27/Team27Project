@@ -38,15 +38,31 @@ def _draw_pose(frame, landmarks) -> None:
         cv2.circle(frame, p2, 4, (40, 180, 255), -1)
 
 
-def _draw_status(frame, mode: str, completed: int, status: str, feedback: str, fps: float) -> None:
+def _draw_status(
+    frame,
+    mode: str,
+    completed: int,
+    status: str,
+    feedback: str,
+    fps: float,
+    depth_fraction: float | None,
+    target_depth: float,
+) -> None:
     color = (60, 220, 90) if status == "GOOD" else (30, 200, 255)
-    cv2.rectangle(frame, (8, 8), (620, 166), (20, 20, 20), -1)
+    cv2.rectangle(frame, (8, 8), (620, 190), (20, 20, 20), -1)
     cv2.putText(frame, f"Exercise: {MODE_LABELS[mode]}", (20, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (245, 245, 245), 2)
     cv2.putText(frame, f"{COUNT_LABELS[mode]}: {completed}", (20, 64), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
     cv2.putText(frame, f"State: {status}", (20, 92), cv2.FONT_HERSHEY_SIMPLEX, 0.58, color, 2)
     cv2.putText(frame, feedback[:72], (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (245, 245, 245), 1)
-    cv2.putText(frame, "Keys 1-6: choose | N: next | Q: quit", (20, 144), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (220, 220, 220), 1)
-    cv2.putText(frame, f"Processing: {fps:.1f} FPS", (20, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (220, 220, 220), 1)
+    if mode == "deep_squat":
+        depth_text = (
+            f"Peak depth: {depth_fraction * 100:.1f}% / target {target_depth * 100:.1f}%"
+            if depth_fraction is not None
+            else f"Peak depth: waiting for descent / target {target_depth * 100:.1f}%"
+        )
+        cv2.putText(frame, depth_text, (20, 146), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (245, 245, 245), 1)
+    cv2.putText(frame, "Keys 1-6: choose | N: next | Q: quit", (20, 168), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (220, 220, 220), 1)
+    cv2.putText(frame, f"Processing: {fps:.1f} FPS", (20, 186), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (220, 220, 220), 1)
 
 
 def main() -> None:
@@ -121,7 +137,16 @@ def main() -> None:
             display.send(current_mode, snapshot.reps, snapshot.status, snapshot.feedback)
             if not args.headless:
                 _draw_pose(frame, landmarks)
-                _draw_status(frame, current_mode, snapshot.reps, snapshot.status, snapshot.feedback, processing_fps)
+                _draw_status(
+                    frame,
+                    current_mode,
+                    snapshot.reps,
+                    snapshot.status,
+                    snapshot.feedback,
+                    processing_fps,
+                    snapshot.depth_fraction,
+                    settings.min_squat_depth,
+                )
                 cv2.putText(frame, "Q: quit", (20, frame.shape[0] - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
                 cv2.imshow("Team 27 Exercise Tracker", frame)
                 key = cv2.waitKey(1) & 0xFF
