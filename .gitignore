@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .env
 .DS_Store
+*.bak
 
 # Local model/data are downloaded separately and should not be committed.
 models/*.task
