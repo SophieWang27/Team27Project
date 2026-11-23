@@ -9,6 +9,8 @@ class SerialDisplay:
     def __init__(self, port: str | None, baud_rate: int) -> None:
         self._connection = None
         self._last_message: str | None = None
+        self._last_sent_at = 0.0
+        self._last_key: tuple[str, int] | None = None
         self._incoming = bytearray()
         if not port:
             print("Arduino serial output disabled (SERIAL_PORT is empty).")
@@ -33,9 +35,18 @@ class SerialDisplay:
         message = f"{mode}|{completed}|{safe_status}|{safe_feedback}\n"
         if message == self._last_message:
             return
+        # Mode/count changes go out immediately; text-only changes are limited to
+        # about 5 per second so the Arduino's small receive buffer cannot overflow.
+        now = time.monotonic()
+        key = (mode, completed)
+        if key == self._last_key and now - self._last_sent_at < 0.2:
+            return
         try:
             self._connection.write(message.encode("ascii", errors="replace"))
+            self._connection.flush()
             self._last_message = message
+            self._last_key = key
+            self._last_sent_at = now
         except Exception as exc:
             print(f"Arduino serial write failed: {exc}")
             self.close()

@@ -85,15 +85,25 @@ void setup() {
   Serial.begin(115200);
   Serial.setTimeout(50);
   display.begin();
+  display.setBusClock(400000);  // fast I2C so a redraw takes ~25 ms instead of ~90 ms
   draw_display();
 }
 
 void loop() {
   handle_mode_button();
-  if (Serial.available() > 0) {
+  // Drain every waiting line first, then redraw once with the newest data so
+  // slow screen redraws never let the USB buffer back up and drop messages.
+  bool updated = false;
+  while (Serial.available() > 0) {
     String line = Serial.readStringUntil('\n');
     line.trim();
-    update_from_line(line);
+    if (line.length() > 0) {
+      update_from_line(line);
+      updated = true;
+    }
+    handle_mode_button();
+  }
+  if (updated) {
     update_leds();
     draw_display();
   }
