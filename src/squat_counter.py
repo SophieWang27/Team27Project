@@ -1,5 +1,6 @@
 """Measure simple 2D deep-squat repetitions and give rule-based feedback."""
 
+import os
 from collections import deque
 from dataclasses import dataclass
 from statistics import mean
@@ -66,16 +67,20 @@ class SquatCounter:
         calibration_frames: int = 30,
         min_depth: float = 0.291,
         max_hip_drift: float = 0.005,
-        max_head_drift: float = 0.00169,
-        start_fraction: float = 0.05,
-        return_fraction: float = 0.08,
+        max_head_drift: float = 0.04,
+        start_fraction: float = 0.10,
+        smoothing: float = 0.5,
     ) -> None:
         self.calibration_frames = max(1, calibration_frames)
         self.min_depth = min_depth
         self.max_hip_drift = max_hip_drift
         self.max_head_drift = max_head_drift
-        self.start_fraction = start_fraction
-        self.return_fraction = return_fraction
+        # Hysteresis: a rep starts when the hips drop past start_fraction and ends
+        # when they come back within max_hip_drift of the standing baseline.
+        self.start_fraction = max(start_fraction, max_hip_drift * 2)
+        # Exponential moving average to damp MediaPipe's frame-to-frame jitter.
+        self.smoothing = min(1.0, max(0.05, smoothing))
+        self._smoothed: Measurement | None = None
         self._calibration: deque[Measurement] = deque(maxlen=self.calibration_frames)
         self._baseline: Measurement | None = None
         self._descending = False
@@ -92,14 +97,31 @@ class SquatCounter:
         """Recalibrate and clear a partial rep while keeping the completed count."""
         self._calibration.clear()
         self._baseline = None
+        self._smoothed = None
         self._descending = False
         self._peak_depth = 0.0
         self._last_outcome = RepStatus(
             self._reps, "CALIBRATING", "Stand upright and hold still", "CALIBRATING"
         )
 
+    def _smooth(self, m: Measurement) -> Measurement:
+        """Blend each new reading with the previous one (noise handling)."""
+        prev = self._smoothed
+        if prev is None:
+            self._smoothed = m
+            return m
+        a = self.smoothing
+        self._smoothed = Measurement(
+            nose_y=a * m.nose_y + (1 - a) * prev.nose_y,
+            hip_y=a * m.hip_y + (1 - a) * prev.hip_y,
+            ankle_y=a * m.ankle_y + (1 - a) * prev.ankle_y,
+            stature=a * m.stature + (1 - a) * prev.stature,
+        )
+        return self._smoothed
+
     def update(self, measurement: Measurement) -> RepStatus:
         """Update the repetition state machine with one visible pose."""
+        measurement = self._smooth(measurement)
         if self._baseline is None:
             self._calibration.append(measurement)
             if len(self._calibration) < self.calibration_frames:
@@ -114,6 +136,11 @@ class SquatCounter:
             return self._last_outcome
 
         displacement = (measurement.hip_y - self._baseline.hip_y) / self._baseline.stature
+        if os.environ.get("SQUAT_DEBUG"):
+            self._dbg = getattr(self, "_dbg", 0) + 1
+            if self._dbg % 3 == 0:
+                print(f"[squat] hip drop {displacement * 100:5.1f}% | need {self.start_fraction * 100:.0f}% to start, "
+                      f"{self.min_depth * 100:.1f}% to count | descending={self._descending}")
         if not self._descending:
             if displacement >= self.start_fraction:
                 self._descending = True
@@ -122,18 +149,19 @@ class SquatCounter:
             return self._last_outcome
 
         self._peak_depth = max(self._peak_depth, displacement)
-        if displacement > self.return_fraction:
+        if displacement > self.max_hip_drift:
             return RepStatus(self._reps, "DESCENDING", "Return to standing", "DESCENDING", self._peak_depth)
 
-        hip_drift = abs(measurement.hip_y - self._baseline.hip_y) / self._baseline.stature
+        # Hips are back near the starting height: the repetition is finished.
         head_drift = abs(measurement.nose_y - self._baseline.nose_y) / self._baseline.stature
         depth = self._peak_depth
         self._descending = False
+        if os.environ.get("SQUAT_DEBUG"):
+            print(f"[squat] REP END: peak depth {depth * 100:.1f}% (need {self.min_depth * 100:.1f}%), "
+                  f"head drift {head_drift * 100:.1f}% (max {self.max_head_drift * 100:.1f}%)")
 
         if depth < self.min_depth:
             self._last_outcome = RepStatus(self._reps, "DEPTH", "Squat deeper", "READY", depth)
-        elif hip_drift > self.max_hip_drift:
-            self._last_outcome = RepStatus(self._reps, "HIPS", "Return to your starting position", "READY", depth)
         elif head_drift > self.max_head_drift:
             self._last_outcome = RepStatus(self._reps, "HEAD", "Finish upright", "READY", depth)
         else:
@@ -144,6 +172,8 @@ class SquatCounter:
 
     def no_pose(self) -> RepStatus:
         """Pause feedback and discard a partly observed repetition."""
+        if os.environ.get("SQUAT_DEBUG"):
+            print("[squat] NO POSE: head, hips or ankles not visible enough this frame")
         if self._descending:
             self._descending = False
             self._peak_depth = 0.0

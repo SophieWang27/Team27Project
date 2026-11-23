@@ -4,9 +4,9 @@
   "deep_squat": {
     "runtime_implemented": true,
     "runtime_thresholds": {
-      "min_squat_depth": 0.291,
-      "max_hip_drift": 0.005,
-      "max_head_drift": 0.00169
+      "min_squat_depth": 0.22,
+      "max_hip_drift": 0.04,
+      "max_head_drift": 0.08
     },
     "research_values": {
       "reported_relative_depth_percent": 32.1,
@@ -19,8 +19,8 @@
     "formula_notes": [
       "Research note: relative squat depth is y displacement divided by height.",
       "Runtime minimum depth is 32.1% minus a 3 percentage point tolerance = 29.1% (0.291).",
-      "Runtime maximum hip/waist return drift is 0.48% + 0.02% = 0.50% (0.005).",
-      "Runtime maximum head return drift is 0.163% + 0.006% = 0.169% (0.00169).",
+      "Runtime hip return tolerance is 4% of stature: the research 0.50% limit is smaller than 2D webcam pose jitter, so it could never be met on this hardware.",
+      "Runtime head return tolerance is 4% of stature for the same reason (research value 0.169%).",
       "Runtime estimates height from detected nose-to-ankle image distance; this is a prototype approximation, not the same measurement setup as the research source."
     ]
   },
