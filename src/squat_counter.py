@@ -81,6 +81,7 @@ class SquatCounter:
         # Exponential moving average to damp MediaPipe's frame-to-frame jitter.
         self.smoothing = min(1.0, max(0.05, smoothing))
         self._smoothed: Measurement | None = None
+        self._implausible = 0
         self._calibration: deque[Measurement] = deque(maxlen=self.calibration_frames)
         self._baseline: Measurement | None = None
         self._descending = False
@@ -98,6 +99,7 @@ class SquatCounter:
         self._calibration.clear()
         self._baseline = None
         self._smoothed = None
+        self._implausible = 0
         self._descending = False
         self._peak_depth = 0.0
         self._last_outcome = RepStatus(
@@ -126,6 +128,13 @@ class SquatCounter:
             self._calibration.append(measurement)
             if len(self._calibration) < self.calibration_frames:
                 return RepStatus(self._reps, "CALIBRATING", "Stand upright and hold still", "CALIBRATING")
+            # Only accept a reference taken while the person is whole-body, large
+            # enough and standing still; otherwise keep sliding the window and wait.
+            hips = [m.hip_y for m in self._calibration]
+            stats = [m.stature for m in self._calibration]
+            still = (max(hips) - min(hips)) < 0.03 and (max(stats) - min(stats)) < 0.05
+            if mean(stats) < 0.35 or not still:
+                return RepStatus(self._reps, "CALIBRATING", "Stand fully in view, still", "CALIBRATING")
             self._baseline = Measurement(
                 nose_y=mean(item.nose_y for item in self._calibration),
                 hip_y=mean(item.hip_y for item in self._calibration),
@@ -136,6 +145,16 @@ class SquatCounter:
             return self._last_outcome
 
         displacement = (measurement.hip_y - self._baseline.hip_y) / self._baseline.stature
+        # A real squat never moves the hips more than ~60% of body height. If it
+        # persists, the reference is stale (person or camera moved): recalibrate.
+        if displacement > 0.6 or displacement < -0.25:
+            self._implausible += 1
+            if self._implausible >= 15:
+                self._implausible = 0
+                self.reset_tracking()
+                return self._last_outcome
+        else:
+            self._implausible = 0
         if os.environ.get("SQUAT_DEBUG"):
             self._dbg = getattr(self, "_dbg", 0) + 1
             if self._dbg % 3 == 0:
